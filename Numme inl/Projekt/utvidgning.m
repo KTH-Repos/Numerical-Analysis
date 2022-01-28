@@ -1,0 +1,124 @@
+clc;                                               
+clear all; close all;
+global q;
+global h;
+
+y0 = (2*5.1*10^7)/(7.6*10^9*9.869604401*0.003); %m
+L = 1; %m
+E = 7.6*10^9; %N/m^2
+b = 0.03; %m 
+tjockleken = 0.003; %m
+I = 6.75*10^(-11);%m^4
+MOR = 5.1 * 10^7; %N/m^2
+
+h = 0.0001; %ÄNDRA STEGLÄNGDEN
+giss0 = 9.869604401; giss1 = 12;
+fel0 = felfunk(giss0);
+disp ('           Gissning                         Fel                 Korr');
+disp([giss0 fel0]);
+t = 1;
+while abs(t) > 1e-12
+    fel1 = felfunk(giss1);
+    t = fel1 * (giss1-giss0)/(fel1-fel0);
+    disp([giss1 fel1 t]);
+    fel0 = fel1; giss0 = giss1; giss1 = giss1 - t;
+end
+
+yprimstart = giss1;
+x0=0; xslut=0.5;
+q = giss1;
+[xut,yut] = Runge4(h, 0, 0.5, [(2*5.1*10^7)/(7.6*10^9*9.869604401*0.003) 0 0]);
+
+grid on
+hold on
+xlabel('x-axis');
+ylabel('y-axis');
+title('Pilbågen');
+xline(0,'r');
+yline(0,'r');
+
+plot(xut, yut(:,1));
+plot(-xut, yut(:,1));
+
+%plot 
+n = length(xut);
+
+fel = yut(n,1)
+q
+S = q * E * I
+
+function [fel, xut, yut] = felfunk(gissning)
+global q;
+global h;
+ratt=0;
+q = gissning;
+%[xut,uut]= ode45(@funktion, [x0 xslut], [0.3 0 0]);
+[xut,yut] = Runge4(h, 0, 0.5, [(2*5.1*10^7)/(7.6*10^9*9.869604401*0.003) 0 0]);
+n=length(xut);
+yprimslut=yut(n,1);
+fel=yprimslut-ratt;
+end
+
+function [xut,yut] = Runge4(h, x0, xslut, startvarden)
+global q;
+
+fid=fopen('Svar.m','w');
+fprintf(fid,'%7s %7s %7s %7s %7s \n','i','s(i)','y(i)','z(i)','x(i)');                                          
+s = x0:h:xslut;                                         
+n = (xslut-x0)/h;
+y = zeros(1,length(s)); 
+z = zeros(1,length(s)); 
+x = zeros(1,length(s)); 
+
+y(1) = (2*5.1*10^7)/(7.6*10^9*9.869604401*0.003);                                        
+z(1) = 0;                                          
+x(1) = 0;
+
+F_xyz = @(s,y,z,x) z; 
+G_xyz = @(s,y,z,x) -q.*(10.2*10^7)/(7.6*10^9*q*0.003)*sqrt(1-z.^2);
+H_xyz = @(s,y,z,x) sqrt((1-z).^2);
+
+for i=1:(length(s)-1)                              
+    k_1 = F_xyz(s(i),y(i),z(i),x(i));
+    L_1 = G_xyz(s(i),y(i),z(i),x(i));
+    M_1 = H_xyz(s(i),y(i),z(i),x(i));
+    
+    k_2 = F_xyz(s(i)+0.5*h,y(i)+0.5*h*k_1,z(i)+0.5*h*L_1,x(i)+0.5*h*M_1);
+    L_2 = G_xyz(s(i)+0.5*h,y(i)+0.5*h*k_1,z(i)+0.5*h*L_1,x(i)+0.5*h*M_1);
+    M_2 = H_xyz(s(i)+0.5*h,y(i)+0.5*h*k_1,z(i)+0.5*h*L_1,x(i)+0.5*h*M_1);
+    
+    k_3 = F_xyz((s(i)+0.5*h),(y(i)+0.5*h*k_2),(z(i)+0.5*h*L_2),(x(i)+0.5*h*M_2));
+    L_3 = G_xyz((s(i)+0.5*h),(y(i)+0.5*h*k_2),(z(i)+0.5*h*L_2),(x(i)+0.5*h*M_2));
+    M_3 = H_xyz((s(i)+0.5*h),(y(i)+0.5*h*k_2),(z(i)+0.5*h*L_2),(x(i)+0.5*h*M_2));
+    
+    k_4 = F_xyz((s(i)+h),(y(i)+k_3*h),(z(i)+L_3*h),(x(i)+M_3*h));       
+    L_4 = G_xyz((s(i)+h),(y(i)+k_3*h),(z(i)+L_3*h),(x(i)+M_3*h));
+    M_4 = H_xyz((s(i)+h),(y(i)+k_3*h),(z(i)+L_3*h),(x(i)+M_3*h));
+    
+    y(i+1) = y(i) + (1/6)*(k_1+2*k_2+2*k_3+k_4)*h;
+    z(i+1) = z(i) + (1/6)*(L_1+2*L_2+2*L_3+L_4)*h; 
+    x(i+1) = x(i) + (1/6)*(M_1+2*M_2+2*M_3+M_4)*h;   
+end
+
+for i=1:n+1 
+    fprintf(fid,'%7d %7.4f %7.4f %7.4f %7.4f \n',i, s(i), y(i), z(i), x(i));
+end
+
+ total = [y',z',x'];
+ s = s';
+
+ %plot(s, total(:,1));
+ 
+ xut = s;
+ yut = total;
+
+% %RITAR DEN RIKTIGA!
+% hold on
+% [xut,uut]= ode45(@funktion, [0 0.5], [0.3 0 0]);
+% plot(xut, uut(:,1));
+% %----------
+end
+
+% while MOR 
+%     
+% end
